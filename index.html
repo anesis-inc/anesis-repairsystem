@@ -358,7 +358,8 @@
 
         function generateTableRowsHTML() {
             let filtered = tickets.filter(t => {
-                const searchStr = `${t.storeName} ${t.requester} ${t.category} ${t.details} ${t.vendor || ''}`.toLowerCase();
+                // 検索対象に registrar を追加
+                const searchStr = `${t.storeName} ${t.requester} ${t.registrar || ''} ${t.category} ${t.details} ${t.vendor || ''}`.toLowerCase();
                 if (filters.keyword && !searchStr.includes(filters.keyword.toLowerCase())) return false;
                 if (filters.status && t.status !== filters.status) return false;
                 if (filters.category && t.category !== filters.category) return false;
@@ -379,7 +380,8 @@
                     </td>
                     <td class="p-4">
                         <div class="font-bold text-gray-800">${t.storeName}</div>
-                        <div class="text-xs text-gray-500 mt-0.5">${t.requester}</div>
+                        <div class="text-xs text-gray-500 mt-0.5">依頼: ${t.requester}</div>
+                        ${t.registrar ? `<div class="text-xs text-gray-400 mt-0.5">登録: ${t.registrar}</div>` : ''}
                     </td>
                     <td class="p-4">
                         <div class="text-sm text-gray-700">${t.vendor || '-'}</div>
@@ -470,7 +472,7 @@
                                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <i data-lucide="search" class="h-5 w-5 text-gray-400"></i>
                                 </div>
-                                <input type="text" id="search-keyword" value="${filters.keyword}" placeholder="店舗名、項目、内容で検索..." class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                <input type="text" id="search-keyword" value="${filters.keyword}" placeholder="店舗名、登録者、項目等で検索..." class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                             </div>
                             <button id="btn-toggle-filter" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50">
                                 <i data-lucide="filter" class="w-4 h-4 mr-2"></i>
@@ -492,7 +494,7 @@
                                     <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
                                         <th class="p-4 font-semibold w-24">ID</th>
                                         <th class="p-4 font-semibold w-36">日程</th>
-                                        <th class="p-4 font-semibold">店舗 / 依頼者</th>
+                                        <th class="p-4 font-semibold">店舗 / 依頼・登録者</th>
                                         <th class="p-4 font-semibold w-36">手配業者</th>
                                         <th class="p-4 font-semibold">項目 / 症状概要</th>
                                         <th class="p-4 font-semibold w-36">ステータス</th>
@@ -518,6 +520,7 @@
             const data = {
                 storeName: t.storeName || '',
                 requester: t.requester || '',
+                registrar: t.registrar || '', // 案件登録者を追加
                 requestDate: t.requestDate || today,
                 status: t.status || '受付',
                 category: t.category || '水道',
@@ -564,7 +567,11 @@
                                             </div>
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 mb-1">依頼者 <span class="text-red-500">*</span></label>
-                                                <input type="text" id="f-requester" required value="${data.requester}" class="w-full rounded-md border border-gray-300 p-2">
+                                                <input type="text" id="f-requester" required value="${data.requester}" placeholder="例: 店長 佐藤" class="w-full rounded-md border border-gray-300 p-2">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">案件登録者 <span class="text-red-500">*</span></label>
+                                                <input type="text" id="f-registrar" required value="${data.registrar}" placeholder="例: 本部 山田" class="w-full rounded-md border border-gray-300 p-2">
                                             </div>
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 mb-1">依頼日 <span class="text-red-500">*</span></label>
@@ -772,6 +779,7 @@
                     const formData = {
                         storeName: document.getElementById('f-storeName').value,
                         requester: document.getElementById('f-requester').value,
+                        registrar: document.getElementById('f-registrar').value, // 案件登録者を取得して保存
                         requestDate: document.getElementById('f-requestDate').value,
                         status: document.getElementById('f-status').value,
                         category: document.getElementById('f-category').value,
@@ -801,13 +809,12 @@
             const mainHeader = document.getElementById('main-header');
             const appContainer = document.getElementById('app-container');
 
-            // ログイン成功時の処理（メイン画面の表示とFirebase初期化）
             const startApp = () => {
                 loginScreen.style.display = 'none';
                 mainHeader.classList.remove('hidden');
                 appContainer.classList.remove('hidden');
                 
-                init(); // ここで初めてFirebaseへの接続を開始します
+                init(); 
 
                 const goHome = () => {
                     if (currentView !== 'list') {
@@ -830,11 +837,10 @@
                 });
             };
 
-            // セッションストレージでログイン状態を確認（ページ更新時に毎回入力を省くため）
             if (sessionStorage.getItem('isAppLoggedIn') === 'true') {
                 startApp();
             } else {
-                lucide.createIcons(); // ログイン画面用のアイコンを描画
+                lucide.createIcons(); 
                 loginForm.addEventListener('submit', (e) => {
                     e.preventDefault();
                     const id = document.getElementById('login-id').value;
